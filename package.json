@@ -1,17 +1,25 @@
 {
   "name": "datocms-plugin-sidebar-record-copy-env",
+  "description": "Allow copy a record to another environment.",
   "version": "0.1.0",
-  "private": true,
+  "homepage": "https://github.com/cadiazo/datocms-plugin-sidebar-record-copy-env#readme",
+  "keywords": [
+    "datocms-plugin",
+    "sidebar",
+    "record copy environment"
+  ],
   "dependencies": {
-    "@types/node": "^16.11.49",
-    "@types/react": "^17.0.48",
-    "@types/react-dom": "^17.0.17",
-    "datocms-plugin-sdk": "^0.6.0",
-    "datocms-react-ui": "^0.6.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@datocms/cma-client": "^1.0.1",
+    "@types/node": "^16.11.27",
+    "@types/react": "^17.0.44",
+    "@types/react-dom": "^17.0.15",
+    "datocms-plugin-sdk": "^0.5.2",
+    "datocms-react-ui": "^0.5.2",
+    "patch-package": "^6.4.7",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
     "react-scripts": "5.0.1",
-    "typescript": "^4.7.4"
+    "typescript": "^4.6.3"
   },
   "scripts": {
     "start": "cross-env BROWSER='none' PUBLIC_URL='/' react-scripts start",
@@ -41,9 +49,12 @@
     "cross-env": "^7.0.3"
   },
   "datoCmsPlugin": {
-    "title": "",
-    "previewImage": "",
-    "coverImage": "",
-    "entryPoint": "build/index.html"
+    "title": "Sidebar Record Copy Environment",
+    "previewImage": "docs/preview.png",
+    "coverImage": "docs/cover.png",
+    "entryPoint": "build/index.html",
+    "permissions": [
+      "currentUserAccessToken"
+    ]
   }
 }

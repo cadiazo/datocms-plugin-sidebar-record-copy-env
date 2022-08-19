@@ -1,0 +1,218 @@
+import { buildClient, SimpleSchemaTypes } from "@datocms/cma-client";
+import { RenderItemFormSidebarPanelCtx } from "datocms-plugin-sdk";
+import { Canvas, Button } from "datocms-react-ui";
+import { useState } from "react";
+
+  type Props = {
+    ctx: RenderItemFormSidebarPanelCtx;
+  };
+
+  interface validator {
+    item_types : string[];
+  }
+  interface LinkUpload {
+    upload_id : string;
+  }
+  interface Upload {
+    url : string;
+    filename: string;
+  }
+
+  function buildApiClient(ctx : RenderItemFormSidebarPanelCtx, environment?: string) {
+    if(typeof ctx.currentUserAccessToken  === 'string') {
+     return buildClient({
+        apiToken: ctx.currentUserAccessToken,
+        environment: environment?environment:ctx.environment
+      });
+    }
+  }
+
+  export function CustomPanel({ ctx }: Props) {
+    const { environments } = ctx.plugin.attributes.parameters;
+    const [envs] = useState(environments as string);
+    const [selectedEnv, setSelectedEnv] = useState("");
+
+    if (ctx.itemStatus === 'new') {
+      <div>Por favor crear el registro, antes de copiar a otro entorno</div>;
+    }
+      
+    return (
+      <Canvas ctx={ctx}>
+
+          Seleccionar entorno: 
+          <select id="selectedEnv" name="selectedEnv" value={undefined} onChange={(e) => {setSelectedEnv(e.target.value)}}>
+            <option value="">Seleccione</option>
+            {envs.split(",").map(item => 
+              <option value={item}>{item}</option>
+            )}
+          </select>
+          <br/>
+          <br/>
+        <Button onClick={() => copy(ctx, selectedEnv)} fullWidth>
+        Copiar
+      </Button>
+      </Canvas>
+    );
+  }
+
+  function copy( ctx : RenderItemFormSidebarPanelCtx, selectedEnv: string){
+    if(selectedEnv === ""){
+      alert("Seleccionar entorno");
+      return;
+    }
+    if(ctx.item?.id){
+      const client = buildApiClient(ctx);
+      const client2 = buildApiClient(ctx, selectedEnv);
+
+      if(!client || !client2){
+        console.error("Token is invalid");
+        return;
+      }
+
+      const itemId = ctx.item.id;
+      const itemType = ctx.itemType.attributes.api_key;
+
+      client.fields.list(itemType).then(async fields => {
+        const item =  await client.items.find(itemId ,{}).then(item => item);
+        const field_primary = await client.fields.list(item.item_type.id).then(fields => 
+            fields.filter(field=> field.validators && field.validators["unique"])
+        );
+        const result = await Promise.all(
+            fields.map( async field => {
+                let link = (field.validators?.item_item_type as validator)?.item_types ;
+                let isLink = false;
+                let isPrimaryField = false;
+                let isFile = false;
+                let value = item[field.api_key];
+                let api_key_link = null;
+                let type_link = null;
+                if(field.field_type === 'link'){
+                    isLink = true;
+                    if(value){
+                        const item_link = await client.items.find(value as string ,{}).then(item => item);
+                        const item_type_link = await client.itemTypes.find(link[0]);
+                        const field_primary_link = await client.fields.list(link[0]).then(fields2 => 
+                            fields2.filter(field2=> field2.validators && field2.validators["unique"])
+                        );
+                        value = null;
+                        if(field_primary_link && field_primary_link.length > 0){
+                            type_link = item_type_link.api_key;
+                            api_key_link = field_primary_link[0].api_key;
+                            value = item_link[api_key_link];
+                        }
+                    }
+                }
+    
+                if(field_primary && field_primary.length > 0 && field.api_key === field_primary[0].api_key){
+                    isPrimaryField = true;
+                }
+    
+                if(field.field_type === 'file'){
+                    isFile = true;
+                    if(value){
+                        let upload_id = (value as LinkUpload).upload_id;
+                        const item_upload = await client.uploads.find(upload_id);
+                        value = {
+                            url: item_upload.url,
+                            filename: item_upload.filename,
+                            skipCreationIfAlreadyExists: true,
+                            author: item_upload.author,
+                            copyright: item_upload.copyright
+                        };
+                    }
+    
+                }
+
+                if(['gallery','multiple','structured_text','rich_text'].includes(field.field_type)){
+                  value = null;
+                }
+    
+                return { api_key: field.api_key, value: value, isLink: isLink, api_key_link: api_key_link, type_link: type_link, isPrimaryField: isPrimaryField, isFile: isFile};
+            })
+        );
+        return result;
+    }
+    ).then(async fields => {
+        const result = await Promise.all(
+            fields.map( async field => {
+                let value = field.value;
+                if(field.isPrimaryField && !field.isLink){
+                    value = `${value} (copy ${new Date().getTime()})`;
+                }
+                if(field.isLink && field.type_link && field.api_key_link){
+                    const map = new Map<string, {}>();
+                    map.set(field.api_key_link, {eq : field.value});
+    
+                    value = await client2.items.list({   
+                     filter: {
+                        type: field.type_link,
+                        fields: {
+                            ...Object.fromEntries(map)
+                        }
+                    },
+                    version: "current"}).then(items => {
+                        if(items && items.length > 0){
+                            return items[0].id
+                        }
+                        return null;
+                    });
+                }
+    
+                if(field.isFile && value){
+                    let upload_id = await client2.uploads.list({
+                        filter: {
+                            fields : {
+                                filename : {
+                                    matches: {
+                                        pattern: (value as Upload).filename,
+                                        caseSensitive: false
+                                    }
+                                }
+                            }
+                        }
+                    }).then(items => {
+                        if(items && items.length >0 ){
+                            return items[0].id;
+                        }
+                        return null;
+                    });
+    
+                    if(upload_id){
+                        value = {
+                          upload_id: upload_id
+                        }
+                    } else {
+                      value = null;
+                    }
+                }
+    
+                return { api_key: field.api_key, value: value};
+            }
+            )
+        );
+        return result;
+    })
+    .then( async fields => {
+    
+        const map = new Map(fields.map( field => {
+            return [field.api_key, field.value];
+        }));
+        
+        const item_type = await client2.itemTypes.find(itemType);
+        const body : SimpleSchemaTypes.ItemCreateSchema = {
+            item_type: {
+                type: 'item_type',
+                id: item_type.id
+            },
+            ...Object.fromEntries(map)
+        }
+        const result = await client2.items.create(body);
+    
+        return result;
+    
+    }).then(result => {
+      ctx.notice(`Registro copiado a ${selectedEnv} con éxito`);
+    }).catch( () => ctx.customToast({type: 'warning', message: 'No se pudo copiar el registro'}))
+
+    }
+  }
