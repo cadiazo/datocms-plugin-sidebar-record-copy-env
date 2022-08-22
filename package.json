@@ -1,8 +1,12 @@
 {
   "name": "datocms-plugin-sidebar-record-copy-env",
   "description": "Allow copy a record to another environment.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "homepage": "https://github.com/cadiazo/datocms-plugin-sidebar-record-copy-env#readme",
+  "files": [
+    "build",
+    "docs"
+  ],
   "keywords": [
     "datocms-plugin",
     "sidebar",
