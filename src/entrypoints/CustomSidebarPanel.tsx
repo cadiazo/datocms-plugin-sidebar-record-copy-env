@@ -1,7 +1,7 @@
-import { buildClient, SimpleSchemaTypes } from "@datocms/cma-client";
+import { buildClient, SimpleSchemaTypes } from "@datocms/cma-client-browser";
 import { RenderItemFormSidebarPanelCtx } from "datocms-plugin-sdk";
 import { Canvas, Button } from "datocms-react-ui";
-import { useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 
   type Props = {
     ctx: RenderItemFormSidebarPanelCtx;
@@ -31,6 +31,7 @@ import { useState } from "react";
     const { environments } = ctx.plugin.attributes.parameters;
     const [envs] = useState(environments as string);
     const [selectedEnv, setSelectedEnv] = useState("");
+    const [disable, setDisable] = useState(false);
 
     if (ctx.itemStatus === 'new') {
       <div>Por favor crear el registro, antes de copiar a otro entorno</div>;
@@ -41,21 +42,22 @@ import { useState } from "react";
 
           Seleccionar entorno: 
           <select id="selectedEnv" name="selectedEnv" value={undefined} onChange={(e) => {setSelectedEnv(e.target.value)}}>
-            <option value="">Seleccione</option>
+            <option key={"optionEnv_none"} value="">Seleccione</option>
             {envs.split(",").map(item => 
-              <option value={item}>{item}</option>
+              <option key={"optionEnv_" + item} value={item}>{item}</option>
             )}
           </select>
           <br/>
           <br/>
-        <Button onClick={() => copy(ctx, selectedEnv)} fullWidth>
+          
+        <Button key="btnCopyRecordEnv" disabled={disable} onClick={() => copy(ctx, selectedEnv, setDisable)} fullWidth>
         Copiar
       </Button>
       </Canvas>
     );
   }
 
-  function copy( ctx : RenderItemFormSidebarPanelCtx, selectedEnv: string){
+  function copy( ctx : RenderItemFormSidebarPanelCtx, selectedEnv: string, setDisable: Dispatch<SetStateAction<boolean>>){
     if(selectedEnv === ""){
       alert("Seleccionar entorno");
       return;
@@ -66,8 +68,11 @@ import { useState } from "react";
 
       if(!client || !client2){
         console.error("Token is invalid");
+        ctx.customToast({type: 'warning', message: 'No se pudo copiar el registro'})
         return;
       }
+
+      setDisable(true);
 
       const itemId = ctx.item.id;
       const itemType = ctx.itemType.attributes.api_key;
@@ -115,9 +120,6 @@ import { useState } from "react";
                         value = {
                             url: item_upload.url,
                             filename: item_upload.filename,
-                            skipCreationIfAlreadyExists: true,
-                            author: item_upload.author,
-                            copyright: item_upload.copyright
                         };
                     }
     
@@ -177,12 +179,16 @@ import { useState } from "react";
                         return null;
                     });
     
-                    if(upload_id){
-                        value = {
-                          upload_id: upload_id
-                        }
-                    } else {
-                      value = null;
+                    if(!upload_id){
+                      let blob = await fetch((value as Upload).url).then(resource => resource.blob());
+                      let fileName = (value as Upload).filename;
+                      upload_id = await client2.uploads.createFromFileOrBlob({
+                        fileOrBlob: new File([blob], fileName),
+                        filename: fileName,
+                        }).then(result => result.id);
+                    } 
+                    value = {
+                      upload_id: upload_id
                     }
                 }
     
@@ -210,9 +216,11 @@ import { useState } from "react";
     
         return result;
     
-    }).then(result => {
+    }).then(() => {
       ctx.notice(`Registro copiado a ${selectedEnv} con éxito`);
-    }).catch( () => ctx.customToast({type: 'warning', message: 'No se pudo copiar el registro'}))
-
+    }).catch( (e) => {
+      console.error(e);
+      ctx.customToast({type: 'warning', message: 'No se pudo copiar el registro'})
+    }).finally(() => setDisable(false))
     }
   }
