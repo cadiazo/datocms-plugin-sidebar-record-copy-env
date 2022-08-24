@@ -7,7 +7,7 @@ Allow copy a record to another environment.
 Requires a configuration in the plugin:
 - CurrentUserAccessToken permissions.
 - Load environments.
-- Add the modelApiKey.
+- Add models (comma delimited).
 
 # Considerations
 - The record to be copied must have the same field structure and model in the another environment.
@@ -17,6 +17,6 @@ Requires a configuration in the plugin:
 - For field type 'file', the file will be created in the other environment when it doesn't exist
 
 # TODO
-- Create the record in the anoother environment in case it dows not exits for the 'link' field type.
+- Create the record in the another environment in case it dows not exits for the 'link' field type.
 - Support all fields types.
 
