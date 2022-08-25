@@ -31,6 +31,7 @@ import { Dispatch, SetStateAction, useState } from "react";
     const { environments } = ctx.plugin.attributes.parameters;
     const [envs] = useState(environments as string);
     const [selectedEnv, setSelectedEnv] = useState("");
+    const [checkedAutoKey, setCheckedAutoKey] = useState(false);
     const [disable, setDisable] = useState(false);
 
     if (ctx.itemStatus === 'new') {
@@ -49,15 +50,19 @@ import { Dispatch, SetStateAction, useState } from "react";
           </select>
           <br/>
           <br/>
+          <label>
+            <input type="checkbox" id="checkboxAutoKey" value={undefined} checked={checkedAutoKey} onChange={() => setCheckedAutoKey(!checkedAutoKey)} /> Key Autogenerado ?
+          </label>
           
-        <Button key="btnCopyRecordEnv" disabled={disable} onClick={() => copy(ctx, selectedEnv, setDisable)} fullWidth>
+          
+        <Button key="btnCopyRecordEnv" disabled={disable} onClick={() => copy(ctx, checkedAutoKey, selectedEnv, setDisable)} fullWidth>
         Copiar
       </Button>
       </Canvas>
     );
   }
 
-  function copy( ctx : RenderItemFormSidebarPanelCtx, selectedEnv: string, setDisable: Dispatch<SetStateAction<boolean>>){
+  function copy( ctx : RenderItemFormSidebarPanelCtx, checkedAutoKey : boolean, selectedEnv: string, setDisable: Dispatch<SetStateAction<boolean>>){
     if(selectedEnv === ""){
       alert("Seleccionar entorno");
       return;
@@ -138,7 +143,7 @@ import { Dispatch, SetStateAction, useState } from "react";
         const result = await Promise.all(
             fields.map( async field => {
                 let value = field.value;
-                if(field.isPrimaryField && !field.isLink){
+                if(checkedAutoKey && field.isPrimaryField && !field.isLink){
                     value = `${value} (copy ${new Date().getTime()})`;
                 }
                 if(field.isLink && field.type_link && field.api_key_link){
